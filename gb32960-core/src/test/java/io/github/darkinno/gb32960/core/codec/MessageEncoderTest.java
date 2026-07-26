@@ -1,7 +1,9 @@
 package io.github.darkinno.gb32960.core.codec;
 
 import io.github.darkinno.gb32960.core.constant.CommandFlag;
+import io.github.darkinno.gb32960.core.constant.EncryptionType;
 import io.github.darkinno.gb32960.core.constant.ResponseFlag;
+import io.github.darkinno.gb32960.core.crypto.AesCryptoProvider;
 import io.github.darkinno.gb32960.core.model.RawMessage;
 import org.junit.jupiter.api.Test;
 
@@ -73,6 +75,38 @@ class MessageEncoderTest {
         assertEquals(CommandFlag.PLATFORM_LOGIN, decoded.getCommandFlag());
         assertEquals(ResponseFlag.COMMAND, decoded.getResponseFlag());
         assertTrue(decoded.getDataLength() > 0);
+    }
+
+    @Test
+    void shouldEncryptResponseDataWhenCryptoProviderIsSupplied() {
+        RawMessage request = RawMessage.builder()
+                .commandFlag(CommandFlag.TERMINAL_TIMING)
+                .responseFlag(ResponseFlag.COMMAND)
+                .vin(VIN)
+                .encryptionType(EncryptionType.AES128)
+                .build();
+        AesCryptoProvider cryptoProvider = new AesCryptoProvider(new byte[16]);
+        byte[] plainData = new byte[]{0x26, 0x07, 0x27, 0x12, 0x34, 0x56};
+
+        byte[] response = MessageEncoder.buildResponse(request, ResponseFlag.SUCCESS, plainData, cryptoProvider);
+        RawMessage decoded = MessageDecoder.decodeRaw(response);
+
+        assertEquals(EncryptionType.AES128, decoded.getEncryptionType());
+        assertNotEquals(plainData.length, decoded.getDataLength());
+        assertArrayEquals(plainData, cryptoProvider.decrypt(EncryptionType.AES128, decoded.getDataUnit()));
+    }
+
+    @Test
+    void shouldRejectEncryptedResponseWithoutCryptoProvider() {
+        RawMessage request = RawMessage.builder()
+                .commandFlag(CommandFlag.TERMINAL_TIMING)
+                .responseFlag(ResponseFlag.COMMAND)
+                .vin(VIN)
+                .encryptionType(EncryptionType.AES128)
+                .build();
+
+        assertThrows(MessageEncoder.EncodeException.class,
+                () -> MessageEncoder.buildResponse(request, ResponseFlag.SUCCESS, new byte[]{0x01}));
     }
 
     @Test

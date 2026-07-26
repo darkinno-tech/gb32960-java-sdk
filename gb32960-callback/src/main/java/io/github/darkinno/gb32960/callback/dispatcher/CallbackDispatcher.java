@@ -8,14 +8,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class CallbackDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(CallbackDispatcher.class);
+    private static final int ASYNC_THREADS = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
+    private static final int ASYNC_QUEUE_CAPACITY = 10_000;
 
     private final List<Gb32960Callback> callbacks = new CopyOnWriteArrayList<>();
     private final AtomicBoolean asyncEnabled = new AtomicBoolean(false);
@@ -33,11 +37,12 @@ public class CallbackDispatcher {
         if (asyncEnabled.compareAndSet(!async, async)) {
             if (async) {
                 ExecutorService old = executor;
-                executor = Executors.newCachedThreadPool(r -> {
+                executor = new ThreadPoolExecutor(ASYNC_THREADS, ASYNC_THREADS,
+                        0L, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(ASYNC_QUEUE_CAPACITY), r -> {
                     Thread t = new Thread(r, "gb32960-callback");
                     t.setDaemon(true);
                     return t;
-                });
+                }, new ThreadPoolExecutor.CallerRunsPolicy());
                 if (old != null) {
                     old.shutdown();
                 }
@@ -85,7 +90,11 @@ public class CallbackDispatcher {
         ExecutorService current = executor;
         for (Gb32960Callback callback : callbacks) {
             if (asyncEnabled.get() && current != null) {
-                current.submit(() -> safeInvoke(callback, invoker, method));
+                try {
+                    current.submit(() -> safeInvoke(callback, invoker, method));
+                } catch (java.util.concurrent.RejectedExecutionException e) {
+                    safeInvoke(callback, invoker, method);
+                }
             } else {
                 safeInvoke(callback, invoker, method);
             }

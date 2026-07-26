@@ -1,7 +1,9 @@
 package io.github.darkinno.gb32960.core.codec;
 
 import io.github.darkinno.gb32960.core.constant.CommandFlag;
+import io.github.darkinno.gb32960.core.constant.EncryptionType;
 import io.github.darkinno.gb32960.core.constant.ResponseFlag;
+import io.github.darkinno.gb32960.core.crypto.CryptoProvider;
 import io.github.darkinno.gb32960.core.model.RawMessage;
 import io.github.darkinno.gb32960.core.util.BccUtil;
 
@@ -48,6 +50,9 @@ public class MessageEncoder {
     }
 
     public static byte[] buildResponse(RawMessage request, byte responseFlag, byte[] dataUnit) {
+        if (dataUnit != null && request.getEncryptionType() != EncryptionType.NONE) {
+            throw new EncodeException("An encrypted response requires a CryptoProvider");
+        }
         return encode(RawMessage.builder()
                 .commandFlag(request.getCommandFlag())
                 .responseFlag(responseFlag)
@@ -55,6 +60,27 @@ public class MessageEncoder {
                 .encryptionType(request.getEncryptionType())
                 .dataUnit(dataUnit)
                 .dataLength(dataUnit != null ? dataUnit.length : 0)
+                .build());
+    }
+
+    public static byte[] buildResponse(RawMessage request, byte responseFlag, byte[] dataUnit,
+                                       CryptoProvider cryptoProvider) {
+        byte encryptionType = request.getEncryptionType();
+        byte[] encodedDataUnit = dataUnit;
+        if (dataUnit != null && encryptionType != EncryptionType.NONE) {
+            if (cryptoProvider == null || !cryptoProvider.supports(encryptionType)) {
+                throw new EncodeException("No CryptoProvider supports encryption type 0x"
+                        + String.format("%02X", encryptionType));
+            }
+            encodedDataUnit = cryptoProvider.encrypt(encryptionType, dataUnit);
+        }
+        return encode(RawMessage.builder()
+                .commandFlag(request.getCommandFlag())
+                .responseFlag(responseFlag)
+                .vin(request.getVin())
+                .encryptionType(encryptionType)
+                .dataUnit(encodedDataUnit)
+                .dataLength(encodedDataUnit != null ? encodedDataUnit.length : 0)
                 .build());
     }
 
@@ -122,6 +148,10 @@ public class MessageEncoder {
     }
 
     public static class EncodeException extends RuntimeException {
+        public EncodeException(String message) {
+            super(message);
+        }
+
         public EncodeException(String message, Throwable cause) {
             super(message, cause);
         }

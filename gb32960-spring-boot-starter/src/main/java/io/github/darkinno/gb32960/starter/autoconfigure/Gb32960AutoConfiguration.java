@@ -31,11 +31,13 @@ public class Gb32960AutoConfiguration {
     private static final Logger log = LoggerFactory.getLogger(Gb32960AutoConfiguration.class);
 
     @Bean
+    @ConditionalOnMissingBean
     public CallbackDispatcher callbackDispatcher() {
         return new CallbackDispatcher();
     }
 
     @Bean
+    @ConditionalOnMissingBean
     public AuthProvider authProvider(Gb32960Properties props) {
         String type = props.getAuth().getType();
         if ("whitelist".equalsIgnoreCase(type)) {

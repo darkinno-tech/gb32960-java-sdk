@@ -22,6 +22,9 @@ public class TestMessageBuilder {
         data.write(batteryCount & 0xFF);
         data.write((codeLength >> 8) & 0xFF);
         data.write(codeLength & 0xFF);
+        for (int i = 0; i < batteryCount; i++) {
+            writeFixedString(data, "BMS" + (i + 1), codeLength);
+        }
         return buildMessage(CommandFlag.VEHICLE_LOGIN, ResponseFlag.COMMAND, vin, data.toByteArray());
     }
 
@@ -62,6 +65,23 @@ public class TestMessageBuilder {
         writeExtremumData(data);
         data.write(InfoType.ALARM_DATA);
         writeAlarmData(data);
+        return buildMessage(CommandFlag.REALTIME_REPORT, ResponseFlag.COMMAND, vin, data.toByteArray());
+    }
+
+    public static byte[] buildRealtimeBatteryVoltageData(String vin) {
+        ByteArrayOutputStream data = new ByteArrayOutputStream();
+        writeBcdTime(data);
+        data.write(InfoType.BATTERY_VOLTAGE_DATA);
+        data.write(0x01);
+        data.write(0x01);
+        writeUnsignedShort(data, 4000);
+        writeUnsignedShort(data, 10500);
+        writeUnsignedShort(data, 100);
+        writeUnsignedShort(data, 21);
+        data.write(0x03);
+        writeUnsignedShort(data, 3501);
+        writeUnsignedShort(data, 3502);
+        writeUnsignedShort(data, 3503);
         return buildMessage(CommandFlag.REALTIME_REPORT, ResponseFlag.COMMAND, vin, data.toByteArray());
     }
 
@@ -118,8 +138,8 @@ public class TestMessageBuilder {
                                               double odometer, double voltage, double current) {
         int speedRaw = (int) (speed * 10);
         long odoRaw = (long) (odometer * 10);
-        int voltRaw = (int) voltage;
-        int currRaw = (int) (current + 1000);
+        int voltRaw = (int) (voltage * 10);
+        int currRaw = (int) ((current + 1000) * 10);
 
         baos.write(0x01);
         baos.write(0x01);
@@ -148,12 +168,13 @@ public class TestMessageBuilder {
         baos.write(0x01);
         baos.write(0x01);
         baos.write((temp + 40) & 0xFF);
-        baos.write((speed >> 8) & 0xFF);
-        baos.write(speed & 0xFF);
+        int speedRaw = speed + 20000;
+        baos.write((speedRaw >> 8) & 0xFF);
+        baos.write(speedRaw & 0xFF);
         baos.write(0x07); baos.write((byte) 0xD0);
         baos.write((temp + 40) & 0xFF);
-        baos.write(0x00); baos.write((byte) 0xC8);
-        baos.write((byte) 0xFC); baos.write(0x18);
+        baos.write(0x07); baos.write((byte) 0xD0);
+        baos.write(0x27); baos.write(0x10);
     }
 
     private static void writePositionData(ByteArrayOutputStream baos, double lng, double lat) {
@@ -207,6 +228,11 @@ public class TestMessageBuilder {
         byte[] bytes = (s != null ? s : "").getBytes(StandardCharsets.US_ASCII);
         System.arraycopy(bytes, 0, result, 0, Math.min(bytes.length, length));
         baos.write(result, 0, result.length);
+    }
+
+    private static void writeUnsignedShort(ByteArrayOutputStream baos, int value) {
+        baos.write((value >> 8) & 0xFF);
+        baos.write(value & 0xFF);
     }
 
     private static byte intToBcd(int value) {
