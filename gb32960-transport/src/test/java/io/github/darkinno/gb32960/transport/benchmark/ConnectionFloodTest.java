@@ -126,6 +126,9 @@ class ConnectionFloodTest {
         data.write(batteryCount & 0xFF);
         data.write((codeLength >> 8) & 0xFF);
         data.write(codeLength & 0xFF);
+        for (int i = 0; i < batteryCount * codeLength; i++) {
+            data.write(0x00);
+        }
         return buildMessage((byte) 0x01, (byte) 0xFE, vin, data.toByteArray());
     }
 

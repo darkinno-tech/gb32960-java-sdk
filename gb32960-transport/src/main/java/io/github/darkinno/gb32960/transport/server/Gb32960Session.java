@@ -5,6 +5,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 
 public class Gb32960Session implements Session {
 
@@ -33,7 +34,8 @@ public class Gb32960Session implements Session {
 
     @Override
     public InetSocketAddress remoteAddress() {
-        return (InetSocketAddress) ctx.channel().remoteAddress();
+        SocketAddress remoteAddress = ctx.channel().remoteAddress();
+        return remoteAddress instanceof InetSocketAddress address ? address : null;
     }
 
     @Override

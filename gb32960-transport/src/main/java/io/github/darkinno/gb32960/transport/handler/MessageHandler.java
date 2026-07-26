@@ -8,6 +8,7 @@ import io.github.darkinno.gb32960.core.constant.CommandFlag;
 import io.github.darkinno.gb32960.core.constant.EncryptionType;
 import io.github.darkinno.gb32960.core.constant.ResponseFlag;
 import io.github.darkinno.gb32960.core.crypto.CryptoProvider;
+import io.github.darkinno.gb32960.core.crypto.CryptoException;
 import io.github.darkinno.gb32960.core.crypto.NoopCryptoProvider;
 import io.github.darkinno.gb32960.core.model.PlatformLoginMessage;
 import io.github.darkinno.gb32960.core.model.RawMessage;
@@ -70,34 +71,30 @@ public class MessageHandler extends SimpleChannelInboundHandler<RawMessage> {
 
         messagesReceived.increment();
 
-        var authResult = authProvider.authenticate(raw);
-        if (!authResult.isPassed()) {
-            log.warn("Auth failed for VIN={}: {}", raw.getVin(), authResult.getReason());
-            if (raw.isCommand()) {
-                var reply = MessageEncoder.buildResponse(raw, ResponseFlag.ERROR, null);
-                ctx.writeAndFlush(Unpooled.wrappedBuffer(reply));
-            }
-            ctx.close();
-            return;
-        }
-
-        if (raw.isCommand()) {
-            autoReply(ctx, raw);
-        }
-
         try {
             var decryptedRaw = decryptDataUnit(raw);
             var decoded = MessageDecoder.decode(decryptedRaw);
-            dispatcher.dispatch(session, decoded);
 
-            if (decoded instanceof VehicleLoginMessage) {
+            var authResult = authProvider.authenticate(raw);
+            if (!authResult.isPassed()) {
+                log.warn("Auth failed for VIN={}: {}", raw.getVin(), authResult.getReason());
+                sendResponse(ctx, raw, ResponseFlag.ERROR, null);
+                ctx.close();
+                return;
+            }
+
+            if (decoded instanceof VehicleLoginMessage || decoded instanceof PlatformLoginMessage) {
                 session.setVin(raw.getVin());
             }
-            if (decoded instanceof PlatformLoginMessage) {
-                session.setVin(raw.getVin());
+
+            if (raw.isCommand()) {
+                autoReply(ctx, raw);
             }
-        } catch (MessageDecoder.DecodeException e) {
-            log.error("Decode failed for VIN={}: {}", raw.getVin(), e.getMessage());
+
+            dispatcher.dispatch(session, decoded);
+        } catch (MessageDecoder.DecodeException | CryptoException e) {
+            log.error("Message processing failed for VIN={}: {}", raw.getVin(), e.getMessage());
+            sendResponse(ctx, raw, ResponseFlag.ERROR, null);
             dispatcher.dispatch(session, raw);
         }
     }
@@ -111,9 +108,7 @@ public class MessageHandler extends SimpleChannelInboundHandler<RawMessage> {
             case CommandFlag.REALTIME_REPORT:
             case CommandFlag.REISSUE_REPORT:
             case CommandFlag.PLATFORM_LOGIN: {
-                var reply = MessageEncoder.buildResponse(raw, ResponseFlag.SUCCESS, null);
-                ctx.writeAndFlush(Unpooled.wrappedBuffer(reply));
-                messagesSent.increment();
+                sendResponse(ctx, raw, ResponseFlag.SUCCESS, null);
                 break;
             }
             case CommandFlag.TERMINAL_TIMING: {
@@ -125,9 +120,7 @@ public class MessageHandler extends SimpleChannelInboundHandler<RawMessage> {
                 timeBytes[3] = intToBcd(now.getHour());
                 timeBytes[4] = intToBcd(now.getMinute());
                 timeBytes[5] = intToBcd(now.getSecond());
-                var reply = MessageEncoder.buildResponse(raw, ResponseFlag.SUCCESS, timeBytes);
-                ctx.writeAndFlush(Unpooled.wrappedBuffer(reply));
-                messagesSent.increment();
+                sendResponse(ctx, raw, ResponseFlag.SUCCESS, timeBytes);
                 break;
             }
             default:
@@ -137,6 +130,15 @@ public class MessageHandler extends SimpleChannelInboundHandler<RawMessage> {
 
     private static byte intToBcd(int value) {
         return (byte) (((value / 10) << 4) | (value % 10));
+    }
+
+    private void sendResponse(ChannelHandlerContext ctx, RawMessage raw, byte responseFlag, byte[] dataUnit) {
+        if (!raw.isCommand()) {
+            return;
+        }
+        var reply = MessageEncoder.buildResponse(raw, responseFlag, dataUnit, cryptoProvider);
+        ctx.writeAndFlush(Unpooled.wrappedBuffer(reply));
+        messagesSent.increment();
     }
 
     @Override
@@ -158,10 +160,24 @@ public class MessageHandler extends SimpleChannelInboundHandler<RawMessage> {
     private RawMessage decryptDataUnit(RawMessage raw) {
         byte encType = raw.getEncryptionType();
         byte[] dataUnit = raw.getDataUnit();
-        if (dataUnit != null && cryptoProvider.supports(encType) && encType != EncryptionType.NONE) {
+        if (dataUnit == null || encType == EncryptionType.NONE) {
+            return raw;
+        }
+        if (!cryptoProvider.supports(encType)) {
+            throw new CryptoException("Unsupported encryption type: 0x" + String.format("%02X", encType));
+        }
+        if (dataUnit != null) {
             byte[] decrypted = cryptoProvider.decrypt(encType, dataUnit);
-            raw.setDataUnit(decrypted);
-            raw.setDataLength(decrypted != null ? decrypted.length : 0);
+            return RawMessage.builder()
+                    .commandFlag(raw.getCommandFlag())
+                    .responseFlag(raw.getResponseFlag())
+                    .vin(raw.getVin())
+                    .encryptionType(raw.getEncryptionType())
+                    .dataLength(decrypted != null ? decrypted.length : 0)
+                    .dataUnit(decrypted)
+                    .bcc(raw.getBcc())
+                    .rawBytes(raw.getRawBytes())
+                    .build();
         }
         return raw;
     }

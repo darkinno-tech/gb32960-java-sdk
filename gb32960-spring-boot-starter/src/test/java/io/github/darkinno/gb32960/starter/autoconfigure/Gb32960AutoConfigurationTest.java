@@ -1,9 +1,12 @@
 package io.github.darkinno.gb32960.starter.autoconfigure;
 
+import io.github.darkinno.gb32960.auth.api.AuthProvider;
+import io.github.darkinno.gb32960.callback.dispatcher.CallbackDispatcher;
 import io.github.darkinno.gb32960.starter.properties.Gb32960Properties;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import static org.assertj.core.api.Assertions.*;
@@ -107,6 +110,22 @@ class Gb32960AutoConfigurationTest {
                     assertThat(props.getOutput().getKafka().getTopic()).isEqualTo("custom-topic");
                     assertThat(props.getOutput().getMqtt().getBrokerUrl()).isEqualTo("tcp://broker:1883");
                     assertThat(props.getOutput().getRedis().getStreamKey()).isEqualTo("custom:stream");
+                });
+    }
+
+    @Test
+    void shouldUseApplicationAuthAndCallbackOverrides() {
+        AuthProvider authProvider = raw -> AuthProvider.AuthResult.success();
+        CallbackDispatcher callbackDispatcher = new CallbackDispatcher();
+
+        new ApplicationContextRunner()
+                .withUserConfiguration(Gb32960AutoConfiguration.class)
+                .withBean(AuthProvider.class, () -> authProvider)
+                .withBean(CallbackDispatcher.class, () -> callbackDispatcher)
+                .withPropertyValues("gb32960.enabled=true", "gb32960.server.port=0")
+                .run(ctx -> {
+                    assertThat(ctx.getBean(AuthProvider.class)).isSameAs(authProvider);
+                    assertThat(ctx.getBean(CallbackDispatcher.class)).isSameAs(callbackDispatcher);
                 });
     }
 

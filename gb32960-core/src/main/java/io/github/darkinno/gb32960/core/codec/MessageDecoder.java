@@ -4,16 +4,12 @@ import io.github.darkinno.gb32960.core.constant.CommandFlag;
 import io.github.darkinno.gb32960.core.constant.InfoType;
 import io.github.darkinno.gb32960.core.model.*;
 import io.github.darkinno.gb32960.core.util.BccUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 
 public class MessageDecoder {
-
-    private static final Logger log = LoggerFactory.getLogger(MessageDecoder.class);
 
     private MessageDecoder() {}
 
@@ -40,8 +36,8 @@ public class MessageDecoder {
 
         int headerEnd = 24;
         int totalExpected = headerEnd + dataLen + 1;
-        if (bytes.length < totalExpected) {
-            throw new DecodeException("Incomplete message: expected " + totalExpected + " bytes, got " + bytes.length);
+        if (bytes.length != totalExpected) {
+            throw new DecodeException("Invalid message length: expected " + totalExpected + " bytes, got " + bytes.length);
         }
 
         byte[] dataUnit = null;
@@ -70,17 +66,22 @@ public class MessageDecoder {
     }
 
     public static Object decode(RawMessage raw) {
-        return switch (raw.getCommandFlag()) {
-            case CommandFlag.VEHICLE_LOGIN   -> decodeVehicleLogin(raw);
-            case CommandFlag.REALTIME_REPORT -> decodeRealtimeData(raw);
-            case CommandFlag.REISSUE_REPORT  -> decodeRealtimeData(raw);
-            case CommandFlag.VEHICLE_LOGOUT  -> decodeVehicleLogout(raw);
-            case CommandFlag.HEARTBEAT       -> decodeHeartbeat(raw);
-            case CommandFlag.PLATFORM_LOGIN  -> decodePlatformLogin(raw);
-            case CommandFlag.PLATFORM_LOGOUT -> decodePlatformLogout(raw);
-            case CommandFlag.TERMINAL_TIMING -> decodeTimingResponse(raw);
-            default -> throw new DecodeException("Unknown command flag: 0x" + String.format("%02X", raw.getCommandFlag()));
-        };
+        try {
+            return switch (raw.getCommandFlag()) {
+                case CommandFlag.VEHICLE_LOGIN   -> decodeVehicleLogin(raw);
+                case CommandFlag.REALTIME_REPORT -> decodeRealtimeData(raw);
+                case CommandFlag.REISSUE_REPORT  -> decodeRealtimeData(raw);
+                case CommandFlag.VEHICLE_LOGOUT  -> decodeVehicleLogout(raw);
+                case CommandFlag.HEARTBEAT       -> decodeHeartbeat(raw);
+                case CommandFlag.PLATFORM_LOGIN  -> decodePlatformLogin(raw);
+                case CommandFlag.PLATFORM_LOGOUT -> decodePlatformLogout(raw);
+                case CommandFlag.TERMINAL_TIMING -> decodeTimingResponse(raw);
+                default -> throw new DecodeException("Unknown command flag: 0x"
+                        + String.format("%02X", raw.getCommandFlag()));
+            };
+        } catch (BufferUnderflowException e) {
+            throw new DecodeException("Data unit is shorter than the command format requires", e);
+        }
     }
 
     public static VehicleLoginMessage decodeVehicleLogin(RawMessage raw) {
@@ -98,7 +99,13 @@ public class MessageDecoder {
         msg.setIccid(new String(iccidBytes, StandardCharsets.US_ASCII).trim());
 
         msg.setBatterySubsystemCount(buf.get() & 0xFF);
-        msg.setBatterySubsystemCodeLength(buf.getShort() & 0xFFFF);
+        int codeLength = buf.getShort() & 0xFFFF;
+        msg.setBatterySubsystemCodeLength(codeLength);
+        for (int i = 0; i < msg.getBatterySubsystemCount(); i++) {
+            byte[] codeBytes = new byte[codeLength];
+            buf.get(codeBytes);
+            msg.getBatterySubsystemCodes().add(new String(codeBytes, StandardCharsets.US_ASCII).trim());
+        }
         msg.setRaw(raw);
         return msg;
     }
@@ -209,9 +216,8 @@ public class MessageDecoder {
                     msg.getBatteryTemperatureDataList().add(decodeBatteryTemperatureData(buf));
                     break;
                 default:
-                    log.warn("Unknown info type 0x{} at position {}, skipping {} bytes",
-                            String.format("%02X", infoType), buf.position(), "unsupported");
-                    break;
+                    throw new DecodeException("Unsupported info type 0x"
+                            + String.format("%02X", infoType) + " at position " + (buf.position() - 1));
             }
         }
         return msg;
@@ -224,8 +230,8 @@ public class MessageDecoder {
         vd.setRunMode(buf.get() & 0xFF);
         vd.setSpeed((buf.getShort() & 0xFFFF) / 10.0);
         vd.setOdometer((buf.getInt() & 0xFFFFFFFFL) / 10.0);
-        vd.setTotalVoltage((buf.getShort() & 0xFFFF) / 1.0);
-        vd.setTotalCurrent(((buf.getShort() & 0xFFFF) - 1000.0) / 1.0);
+        vd.setTotalVoltage((buf.getShort() & 0xFFFF) / 10.0);
+        vd.setTotalCurrent((buf.getShort() & 0xFFFF) / 10.0 - 1000.0);
         vd.setSoc(buf.get() & 0xFF);
         vd.setDcDcStatus(buf.get() & 0xFF);
         vd.setGearPosition(buf.get() & 0xFF);
@@ -246,11 +252,11 @@ public class MessageDecoder {
             mi.setSerial(buf.get() & 0xFF);
             mi.setStatus(buf.get() & 0xFF);
             mi.setControllerTemperature((buf.get() & 0xFF) - 40);
-            mi.setSpeed((buf.getShort() & 0xFFFF));
+            mi.setSpeed((buf.getShort() & 0xFFFF) - 20000);
             mi.setTorque(((buf.getShort() & 0xFFFF) - 2000.0) / 10.0);
             mi.setMotorTemperature((buf.get() & 0xFF) - 40);
-            mi.setControllerInputVoltage((buf.getShort() & 0xFFFF) / 1.0);
-            mi.setDcBusCurrent(((buf.getShort() & 0xFFFF) - 1000.0) / 1.0);
+            mi.setControllerInputVoltage((buf.getShort() & 0xFFFF) / 10.0);
+            mi.setDcBusCurrent((buf.getShort() & 0xFFFF) / 10.0 - 1000.0);
             dmd.getMotors().add(mi);
         }
         return dmd;
@@ -350,10 +356,14 @@ public class MessageDecoder {
         for (int i = 0; i < subsystemCount; i++) {
             BatteryVoltageData.Subsystem sub = new BatteryVoltageData.Subsystem();
             sub.setSubsystemNumber(buf.get() & 0xFF);
-            int cellCount = buf.getShort() & 0xFFFF;
-            sub.setCellCount(cellCount);
-            for (int j = 0; j < cellCount; j++) {
-                sub.getCellVoltages().add((buf.getShort() & 0xFFFF) / 1.0);
+            sub.setTotalVoltage((buf.getShort() & 0xFFFF) / 10.0);
+            sub.setTotalCurrent((buf.getShort() & 0xFFFF) / 10.0 - 1000.0);
+            sub.setTotalCellCount(buf.getShort() & 0xFFFF);
+            sub.setFrameStartCellIndex(buf.getShort() & 0xFFFF);
+            int frameCellCount = buf.get() & 0xFF;
+            sub.setFrameCellCount(frameCellCount);
+            for (int j = 0; j < frameCellCount; j++) {
+                sub.getCellVoltages().add((buf.getShort() & 0xFFFF) / 1000.0);
             }
             bvd.getSubsystems().add(sub);
         }
@@ -400,6 +410,10 @@ public class MessageDecoder {
     public static class DecodeException extends RuntimeException {
         public DecodeException(String message) {
             super(message);
+        }
+
+        public DecodeException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }

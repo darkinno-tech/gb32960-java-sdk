@@ -39,6 +39,7 @@ class MessageDecoderTest {
         assertEquals("89860000000000000001", login.getIccid());
         assertEquals(2, login.getBatterySubsystemCount());
         assertEquals(4, login.getBatterySubsystemCodeLength());
+        assertEquals(java.util.List.of("BMS1", "BMS2"), login.getBatterySubsystemCodes());
         assertNotNull(login.getCollectTime());
         assertSame(raw, login.getRaw());
     }
@@ -108,6 +109,21 @@ class MessageDecoderTest {
 
         assertNotNull(rt.getExtremumData());
         assertNotNull(rt.getAlarmData());
+    }
+
+    @Test
+    void shouldDecodeBatteryVoltageDataUsingProtocolLayout() {
+        RawMessage raw = MessageDecoder.decodeRaw(TestMessageBuilder.buildRealtimeBatteryVoltageData(VIN));
+        RealtimeDataMessage message = (RealtimeDataMessage) MessageDecoder.decode(raw);
+
+        assertEquals(1, message.getBatteryVoltageDataList().size());
+        BatteryVoltageData.Subsystem subsystem = message.getBatteryVoltageDataList().get(0).getSubsystems().get(0);
+        assertEquals(400.0, subsystem.getTotalVoltage(), 0.001);
+        assertEquals(50.0, subsystem.getTotalCurrent(), 0.001);
+        assertEquals(100, subsystem.getTotalCellCount());
+        assertEquals(21, subsystem.getFrameStartCellIndex());
+        assertEquals(3, subsystem.getFrameCellCount());
+        assertEquals(java.util.List.of(3.501, 3.502, 3.503), subsystem.getCellVoltages());
     }
 
     @Test

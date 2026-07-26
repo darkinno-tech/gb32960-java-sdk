@@ -7,7 +7,11 @@ public class BatteryVoltageData {
 
     public static class Subsystem {
         private int subsystemNumber;
-        private int cellCount;
+        private double totalVoltage;
+        private double totalCurrent;
+        private int totalCellCount;
+        private int frameStartCellIndex;
+        private int frameCellCount;
         private List<Double> cellVoltages;
 
         public Subsystem() {
@@ -17,15 +21,40 @@ public class BatteryVoltageData {
         public int getSubsystemNumber() { return subsystemNumber; }
         public void setSubsystemNumber(int subsystemNumber) { this.subsystemNumber = subsystemNumber; }
 
-        public int getCellCount() { return cellCount; }
-        public void setCellCount(int cellCount) { this.cellCount = cellCount; }
+        public double getTotalVoltage() { return totalVoltage; }
+        public void setTotalVoltage(double totalVoltage) { this.totalVoltage = totalVoltage; }
+
+        public double getTotalCurrent() { return totalCurrent; }
+        public void setTotalCurrent(double totalCurrent) { this.totalCurrent = totalCurrent; }
+
+        public int getTotalCellCount() { return totalCellCount; }
+        public void setTotalCellCount(int totalCellCount) { this.totalCellCount = totalCellCount; }
+
+        public int getFrameStartCellIndex() { return frameStartCellIndex; }
+        public void setFrameStartCellIndex(int frameStartCellIndex) { this.frameStartCellIndex = frameStartCellIndex; }
+
+        public int getFrameCellCount() { return frameCellCount; }
+        public void setFrameCellCount(int frameCellCount) { this.frameCellCount = frameCellCount; }
+
+        /**
+         * @deprecated Since 1.1.0, use {@link #getFrameCellCount()}.
+         */
+        @Deprecated
+        public int getCellCount() { return frameCellCount; }
+
+        /**
+         * @deprecated Since 1.1.0, use {@link #setFrameCellCount(int)}.
+         */
+        @Deprecated
+        public void setCellCount(int cellCount) { this.frameCellCount = cellCount; }
 
         public List<Double> getCellVoltages() { return cellVoltages; }
         public void setCellVoltages(List<Double> cellVoltages) { this.cellVoltages = cellVoltages; }
 
         @Override
         public String toString() {
-            return "Subsystem{#" + subsystemNumber + ", cells=" + cellCount + "}";
+            return "Subsystem{#" + subsystemNumber + ", voltage=" + totalVoltage
+                    + "V, frameCells=" + frameCellCount + "}";
         }
     }
 

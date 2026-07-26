@@ -1,6 +1,8 @@
 package io.github.darkinno.gb32960.core.model;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class VehicleLoginMessage {
 
@@ -9,6 +11,7 @@ public class VehicleLoginMessage {
     private String iccid;
     private int batterySubsystemCount;
     private int batterySubsystemCodeLength;
+    private List<String> batterySubsystemCodes = new ArrayList<>();
     private RawMessage raw;
 
     public VehicleLoginMessage() {}
@@ -27,6 +30,11 @@ public class VehicleLoginMessage {
 
     public int getBatterySubsystemCodeLength() { return batterySubsystemCodeLength; }
     public void setBatterySubsystemCodeLength(int batterySubsystemCodeLength) { this.batterySubsystemCodeLength = batterySubsystemCodeLength; }
+
+    public List<String> getBatterySubsystemCodes() { return batterySubsystemCodes; }
+    public void setBatterySubsystemCodes(List<String> batterySubsystemCodes) {
+        this.batterySubsystemCodes = batterySubsystemCodes;
+    }
 
     public RawMessage getRaw() { return raw; }
     public void setRaw(RawMessage raw) { this.raw = raw; }
