@@ -238,7 +238,9 @@ public class MessageDecoder {
         vd.setInsulationResistance(buf.getShort() & 0xFFFF);
         vd.setAcceleratorPedal(buf.get() & 0xFF);
         vd.setBrakePedal(buf.get() & 0xFF);
-        buf.getShort(); // reserved
+        if(buf.remaining() >= 2){
+            buf.getShort(); // reserved
+        }
         return vd;
     }
 
