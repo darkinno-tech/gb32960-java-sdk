@@ -48,10 +48,10 @@ expected: <-20.0> but was: <880.0>
 
 ### 2.2 直接原因
 
-- `gb32960-core/src/main/java/io/github/im10furry/gb32960/core/codec/MessageDecoder.java:233-259`
+- `gb32960-core/src/main/java/io/github/darkinno-tech-tech/gb32960/core/codec/MessageDecoder.java:233-259`
   使用了错误的倍率或偏移量。
 - `MessageDecoder.java:351-370` 未实现动力电池电压的完整布局。
-- `gb32960-transport/src/main/java/io/github/im10furry/gb32960/transport/handler/MessageHandler.java:74-99`
+- `gb32960-transport/src/main/java/io/github/darkinno-tech-tech/gb32960/transport/handler/MessageHandler.java:74-99`
   现已调整为先处理、后成功应答。
 
 ### 2.3 根本原因
