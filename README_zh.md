@@ -1,7 +1,7 @@
-# DarkInno gb32960-java-sdk
+# im10furry gb32960-java-sdk
 
-> *We are DarkInno. Like a stout beer, our best ideas are brewed slowly in the dark, away from the hype.*\
-> *我们是 DarkInno。如同黑啤，最好的想法在黑暗中缓慢酿造，远离喧嚣。*
+> *We are im10furry. Like a stout beer, our best ideas are brewed slowly in the dark, away from the hype.*\
+> *我们是 im10furry。如同黑啤，最好的想法在黑暗中缓慢酿造，远离喧嚣。*
 
 GB/T 32960-2016 电动汽车远程服务与管理系统通信协议 Java SDK — 高性能 Netty TCP 传输层，解析 GB32960 原始报文为结构化对象，支持 Spring Boot Starter 一键集成，可扩展输出至 Kafka / RocketMQ / RabbitMQ / Redis Streams / MQTT。
 
@@ -34,7 +34,7 @@ gb32960-java/
 
 ```xml
 <dependency>
-    <groupId>io.github.darkinno</groupId>
+    <groupId>io.github.im10furry</groupId>
     <artifactId>gb32960-spring-boot-starter</artifactId>
     <version>1.0.0</version>
 </dependency>
@@ -55,7 +55,7 @@ gb32960-java/
 > ```xml
 > <repository>
 >     <id>github</id>
->     <url>https://maven.pkg.github.com/DarkInno/gb32960-java-sdk</url>
+>     <url>https://maven.pkg.github.com/im10furry/gb32960-java-sdk</url>
 > </repository>
 > ```
 
@@ -297,7 +297,7 @@ mvn clean install -DskipTests  # 安装到本地仓库
 
 MIT License
 
-Copyright (c) 2026 DarkInno
+Copyright (c) 2026 im10furry
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -320,15 +320,15 @@ SOFTWARE.
 ---
 
 <p align="center">
-  <a href="https://github.com/DarkInno/gb32960-java-sdk/stargazers">
-    <img src="https://img.shields.io/github/stars/DarkInno/gb32960-java-sdk?style=social" alt="GitHub stars">
+  <a href="https://github.com/im10furry/gb32960-java-sdk/stargazers">
+    <img src="https://img.shields.io/github/stars/im10furry/gb32960-java-sdk?style=social" alt="GitHub stars">
   </a>
   &nbsp;
-  <a href="https://github.com/DarkInno/gb32960-java-sdk/network/members">
-    <img src="https://img.shields.io/github/forks/DarkInno/gb32960-java-sdk?style=social" alt="GitHub forks">
+  <a href="https://github.com/im10furry/gb32960-java-sdk/network/members">
+    <img src="https://img.shields.io/github/forks/im10furry/gb32960-java-sdk?style=social" alt="GitHub forks">
   </a>
   &nbsp;
-  <a href="https://github.com/DarkInno/gb32960-java-sdk/watchers">
-    <img src="https://img.shields.io/github/watchers/DarkInno/gb32960-java-sdk?style=social" alt="GitHub watchers">
+  <a href="https://github.com/im10furry/gb32960-java-sdk/watchers">
+    <img src="https://img.shields.io/github/watchers/im10furry/gb32960-java-sdk?style=social" alt="GitHub watchers">
   </a>
 </p>

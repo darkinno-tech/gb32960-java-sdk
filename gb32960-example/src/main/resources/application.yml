@@ -32,4 +32,4 @@ gb32960:
 
 logging:
   level:
-    io.github.darkinno.gb32960: INFO
+    io.github.im10furry.gb32960: INFO
